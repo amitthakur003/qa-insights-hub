@@ -4,63 +4,85 @@ import { MetricCard } from "@/components/dashboard/MetricCard";
 import { InsightsPanel } from "@/components/dashboard/InsightsPanel";
 import { BuildTimeline } from "@/components/dashboard/BuildTimeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { builds, bugTrendData, insights } from "@/data/mockData";
+import { useQADatabase } from "@/hooks/useQADatabase";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   Legend,
-  AreaChart,
-  Area,
 } from "recharts";
 
 export default function Index() {
+  const { 
+    buildSummaries, 
+    bugTrendData, 
+    predictiveInsights, 
+    overallStats,
+    featureRiskAnalysis 
+  } = useQADatabase();
+
+  // Transform build summaries for timeline
+  const timelineBuilds = buildSummaries.map(b => ({
+    id: b.build_id,
+    version: b.build_id,
+    status: b.status,
+    timestamp: new Date(b.build_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    testsRun: b.total_tests,
+    testsPassed: b.passed,
+    testsFailed: b.failed,
+  }));
+
+  // Transform insights
+  const insightsList = predictiveInsights.map(i => ({
+    id: i.id,
+    type: i.type,
+    title: i.title,
+    description: i.description,
+    action: i.action
+  }));
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         {/* Page header */}
         <div className="animate-fade-in">
           <h2 className="text-2xl font-bold tracking-tight">Release Cycle Overview</h2>
-          <p className="text-muted-foreground">Monitor build health and quality metrics</p>
+          <p className="text-muted-foreground">Monitor build health and quality metrics • Recent 5 builds</p>
         </div>
 
         {/* Metrics row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             title="Total Builds"
-            value="24"
-            subtitle="This release cycle"
+            value={String(overallStats.totalBuilds)}
+            subtitle="In analysis window"
             icon={<TestTube className="h-5 w-5" />}
             variant="info"
-            trend={{ value: 12, direction: "up", label: "vs last cycle" }}
           />
           <MetricCard
             title="Pass Rate"
-            value="94.2%"
-            subtitle="847 / 899 tests passing"
+            value={`${overallStats.passRate}%`}
+            subtitle={`${overallStats.passedTests} / ${overallStats.totalTests} tests passing`}
             icon={<CheckCircle className="h-5 w-5" />}
             variant="success"
-            trend={{ value: 2.4, direction: "up", label: "improvement" }}
           />
           <MetricCard
             title="Failed Tests"
-            value="52"
-            subtitle="Across all builds"
+            value={String(overallStats.failedTests)}
+            subtitle="In latest build"
             icon={<XCircle className="h-5 w-5" />}
             variant="danger"
-            trend={{ value: 8, direction: "down", label: "reduced" }}
           />
           <MetricCard
             title="Open Bugs"
-            value="15"
-            subtitle="3 P1, 7 P2, 5 P3"
+            value={String(overallStats.openBugs)}
+            subtitle={`${overallStats.p1Bugs} P1, ${overallStats.p2Bugs} P2, ${overallStats.p3Bugs} P3`}
             icon={<Bug className="h-5 w-5" />}
             variant="warning"
-            trend={{ value: 3, direction: "up", label: "new this week" }}
           />
         </div>
 
@@ -103,14 +125,12 @@ export default function Index() {
                         backgroundColor: "hsl(var(--card))",
                         border: "1px solid hsl(var(--border))",
                         borderRadius: "8px",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                       }}
-                      labelStyle={{ color: "hsl(var(--foreground))" }}
                     />
                     <Legend />
                     <Area
                       type="monotone"
-                      dataKey="bugs"
+                      dataKey="new_bugs"
                       name="New Bugs"
                       stroke="hsl(var(--priority-p1))"
                       fill="url(#bugsGradient)"
@@ -118,7 +138,7 @@ export default function Index() {
                     />
                     <Area
                       type="monotone"
-                      dataKey="resolved"
+                      dataKey="resolved_bugs"
                       name="Resolved"
                       stroke="hsl(var(--success))"
                       fill="url(#resolvedGradient)"
@@ -131,49 +151,43 @@ export default function Index() {
           </Card>
 
           {/* Insights Panel */}
-          <InsightsPanel insights={insights} />
+          <InsightsPanel insights={insightsList} />
         </div>
 
-        {/* Build Timeline */}
+        {/* Build Timeline and Feature Distribution */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <BuildTimeline builds={builds} />
+          <BuildTimeline builds={timelineBuilds} />
 
-          {/* Test Distribution */}
+          {/* Feature Risk Distribution */}
           <Card className="animate-fade-in">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Test Distribution by Feature</CardTitle>
+              <CardTitle className="text-base font-semibold">Feature Risk Distribution</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {[
-                  { name: "Payment Processing", tests: 156, passed: 142, color: "bg-chart-1" },
-                  { name: "User Authentication", tests: 203, passed: 198, color: "bg-chart-2" },
-                  { name: "Dashboard Analytics", tests: 89, passed: 89, color: "bg-chart-3" },
-                  { name: "Report Generation", tests: 124, passed: 108, color: "bg-chart-4" },
-                  { name: "User Management", tests: 175, passed: 168, color: "bg-chart-5" },
-                ].map((feature, index) => {
-                  const passRate = Math.round((feature.passed / feature.tests) * 100);
-                  return (
-                    <div 
-                      key={feature.name} 
-                      className="animate-slide-up"
-                      style={{ animationDelay: `${index * 50}ms` }}
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-sm font-medium">{feature.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {feature.passed}/{feature.tests} ({passRate}%)
-                        </span>
-                      </div>
-                      <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full ${feature.color} rounded-full transition-all duration-500`}
-                          style={{ width: `${passRate}%` }}
-                        />
-                      </div>
+                {featureRiskAnalysis.slice(0, 5).map((feature, index) => (
+                  <div 
+                    key={feature.feature_id} 
+                    className="animate-slide-up"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-sm font-medium">{feature.feature_name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {feature.passed_tests}/{feature.total_tests} ({feature.pass_rate}%)
+                      </span>
                     </div>
-                  );
-                })}
+                    <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          feature.risk_level === 'high' ? 'bg-risk-high' :
+                          feature.risk_level === 'medium' ? 'bg-risk-medium' : 'bg-risk-low'
+                        }`}
+                        style={{ width: `${feature.pass_rate}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

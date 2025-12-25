@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { historicalBugs, features, buildVersions, severities, statuses } from "@/data/mockData";
+import { useQADatabase } from "@/hooks/useQADatabase";
 import { cn } from "@/lib/utils";
 
 const severityBadges = {
@@ -21,14 +21,16 @@ const statusStyles = {
 };
 
 export default function HistoricalBugs() {
+  const { historicalBugs, features, buildVersions, severities, statuses } = useQADatabase();
+  
   const [selectedFeature, setSelectedFeature] = useState("All Features");
   const [selectedBuild, setSelectedBuild] = useState("All Builds");
   const [selectedSeverity, setSelectedSeverity] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState("All");
 
   const filteredBugs = historicalBugs.filter(bug => {
-    if (selectedFeature !== "All Features" && bug.feature !== selectedFeature) return false;
-    if (selectedBuild !== "All Builds" && bug.build !== selectedBuild) return false;
+    if (selectedFeature !== "All Features" && bug.feature_name !== selectedFeature) return false;
+    if (selectedBuild !== "All Builds" && bug.build_id !== selectedBuild) return false;
     if (selectedSeverity !== "All" && bug.severity !== selectedSeverity) return false;
     if (selectedStatus !== "All" && bug.status !== selectedStatus) return false;
     return true;
@@ -45,7 +47,7 @@ export default function HistoricalBugs() {
         <div className="flex items-center justify-between animate-fade-in">
           <div>
             <h2 className="text-2xl font-bold tracking-tight">Historical Bugs Vault</h2>
-            <p className="text-muted-foreground">Browse and filter all reported bugs</p>
+            <p className="text-muted-foreground">All bugs across builds • Major release retest selector</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2">
@@ -138,7 +140,9 @@ export default function HistoricalBugs() {
                   <p className="text-2xl font-bold text-priority-p1">{openCount}</p>
                 </div>
                 <div className="h-10 w-10 rounded-full bg-priority-p1/20 flex items-center justify-center">
-                  <span className="text-priority-p1 font-bold">{Math.round((openCount / filteredBugs.length) * 100) || 0}%</span>
+                  <span className="text-priority-p1 font-bold text-sm">
+                    {filteredBugs.length > 0 ? Math.round((openCount / filteredBugs.length) * 100) : 0}%
+                  </span>
                 </div>
               </div>
             </CardContent>
@@ -151,7 +155,9 @@ export default function HistoricalBugs() {
                   <p className="text-2xl font-bold text-warning">{inProgressCount}</p>
                 </div>
                 <div className="h-10 w-10 rounded-full bg-warning/20 flex items-center justify-center">
-                  <span className="text-warning font-bold">{Math.round((inProgressCount / filteredBugs.length) * 100) || 0}%</span>
+                  <span className="text-warning font-bold text-sm">
+                    {filteredBugs.length > 0 ? Math.round((inProgressCount / filteredBugs.length) * 100) : 0}%
+                  </span>
                 </div>
               </div>
             </CardContent>
@@ -164,7 +170,9 @@ export default function HistoricalBugs() {
                   <p className="text-2xl font-bold text-success">{resolvedCount}</p>
                 </div>
                 <div className="h-10 w-10 rounded-full bg-success/20 flex items-center justify-center">
-                  <span className="text-success font-bold">{Math.round((resolvedCount / filteredBugs.length) * 100) || 0}%</span>
+                  <span className="text-success font-bold text-sm">
+                    {filteredBugs.length > 0 ? Math.round((resolvedCount / filteredBugs.length) * 100) : 0}%
+                  </span>
                 </div>
               </div>
             </CardContent>
@@ -190,7 +198,6 @@ export default function HistoricalBugs() {
                     <th className="text-center py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Build</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Assignee</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Created</th>
                     <th className="text-center py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
@@ -199,44 +206,43 @@ export default function HistoricalBugs() {
                     const statusStyle = statusStyles[bug.status];
                     return (
                       <tr 
-                        key={bug.id}
+                        key={bug.bug_id}
                         className="border-b border-border/50 hover:bg-muted/30 transition-colors animate-slide-up"
                         style={{ animationDelay: `${index * 30}ms` }}
                       >
                         <td className="py-4 px-4">
-                          <span className="font-mono text-xs text-muted-foreground">{bug.id}</span>
+                          <span className="font-mono text-xs text-muted-foreground">{bug.bug_id}</span>
                         </td>
                         <td className="py-4 px-4">
                           <div>
-                            <p className="text-sm font-medium">{bug.title}</p>
+                            <p className="text-sm font-medium">{bug.title.substring(0, 50)}...</p>
                             <p className="text-xs text-muted-foreground truncate max-w-[250px]">{bug.description}</p>
                           </div>
                         </td>
                         <td className="py-4 px-4">
-                          <span className="text-sm">{bug.feature}</span>
+                          <div>
+                            <span className="text-sm">{bug.feature_name}</span>
+                            <p className="text-xs text-muted-foreground">{bug.module_name}</p>
+                          </div>
                         </td>
                         <td className="py-4 px-4 text-center">
                           <Badge variant={severityBadges[bug.severity]}>{bug.severity}</Badge>
                         </td>
                         <td className="py-4 px-4 text-center">
                           <span className={cn(
-                            "px-2 py-1 rounded-full text-xs font-medium",
+                            "px-2 py-1 rounded-full text-xs font-medium border",
                             statusStyle.bg,
                             statusStyle.color,
-                            statusStyle.border,
-                            "border"
+                            statusStyle.border
                           )}>
                             {bug.status}
                           </span>
                         </td>
                         <td className="py-4 px-4">
-                          <span className="text-xs font-mono">{bug.build}</span>
+                          <span className="text-xs font-mono">{bug.build_id}</span>
                         </td>
                         <td className="py-4 px-4">
                           <span className="text-sm">{bug.assignee}</span>
-                        </td>
-                        <td className="py-4 px-4">
-                          <span className="text-sm text-muted-foreground">{bug.createdAt}</span>
                         </td>
                         <td className="py-4 px-4 text-center">
                           <Button variant="ghost" size="icon" className="h-8 w-8">
